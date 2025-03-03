@@ -1,0 +1,32 @@
+WALL PAINTING COST ESTIMATION REPORT
+===================================
+
+Image: image3.jpg
+Date: 2025-03-03
+
+WALL MEASUREMENTS:
+Total Detected Wall Area: 4.46 m²
+
+COST BREAKDOWN:
+
+ECONOMY QUALITY OPTION:
+- Paint Required: 0.89 liters
+- Paint Cost: rs312.05
+- Additional Materials: rs46.81
+- Labor Cost: rs178.32
+- TOTAL COST: rs537.18
+
+STANDARD QUALITY OPTION:
+- Paint Required: 0.74 liters
+- Paint Cost: rs482.94
+- Additional Materials: rs96.59
+- Labor Cost: rs267.47
+- TOTAL COST: rs847.00
+
+PREMIUM QUALITY OPTION:
+- Paint Required: 0.64 liters
+- Paint Cost: rs764.21
+- Additional Materials: rs191.05
+- Labor Cost: rs445.79
+- TOTAL COST: rs1401.05
+
