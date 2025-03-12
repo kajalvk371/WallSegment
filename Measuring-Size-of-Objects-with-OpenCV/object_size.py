@@ -75,9 +75,10 @@ def segment_walls(image_path):
         hull_area = cv2.contourArea(hull)
         solidity = area / hull_area if hull_area > 0 else 0
         
-        # Filter for wall-like structures
-        if ((area > 800 and circularity < 0.9 and (aspect_ratio > 1.2 or solidity > 0.7)) or
-            (area > 5000)):
+        # Filter for wall-like structures (large areas with rectangular shapes)
+        # INVERTED CONDITION: We're now filtering for large rectangular shapes
+        if ((area > 1000 and circularity < 0.8 and aspect_ratio > 3.0) or
+            (area > 8000 and perimeter > 400 and aspect_ratio > 1.5)):
             cv2.drawContours(refined_mask, [contour], -1, 255, thickness=cv2.FILLED)
     
     # Post-process the mask
@@ -86,20 +87,43 @@ def segment_walls(image_path):
     final_mask = cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, 
                                  kernel=np.ones((11, 11), np.uint8))
     
+    # INVERT THE MASK to detect walls instead of objects
+    # Create a full white mask of the same size
+    inverted_mask = np.ones_like(final_mask) * 255
+    
+    # Subtract the detected objects from the full mask to get walls
+    # We'll also apply some additional processing to clean up the result
+    wall_mask = cv2.subtract(inverted_mask, final_mask)
+    
+    # Remove small noise and holes
+    wall_mask = cv2.morphologyEx(wall_mask, cv2.MORPH_OPEN, 
+                                kernel=np.ones((5, 5), np.uint8))
+    wall_mask = cv2.morphologyEx(wall_mask, cv2.MORPH_CLOSE, 
+                                kernel=np.ones((15, 15), np.uint8))
+    
+    # Remove the outer border which might be detected as walls
+    border_margin = 10
+    h, w = wall_mask.shape
+    roi_mask = np.zeros_like(wall_mask)
+    cv2.rectangle(roi_mask, (border_margin, border_margin), 
+                 (w - border_margin, h - border_margin), 255, -1)
+    wall_mask = cv2.bitwise_and(wall_mask, roi_mask)
+    
     # Create visualization
     colored_mask = np.zeros_like(image)
-    colored_mask[final_mask == 255] = [0, 255, 0]  # Green for walls
-    
+    colored_mask[wall_mask == 255] = [0, 255, 0]  # Green for walls
+
     # Blend with original image
     alpha = 0.6
     beta = 1 - alpha
     segmented_image = cv2.addWeighted(image, alpha, colored_mask, beta, 0)
-    
+
     # Draw contours on the output image
-    contours, _ = cv2.findContours(final_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(segmented_image, contours, -1, (0, 0, 255), 2)
+    contours, _ = cv2.findContours(wall_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cv2.drawContours(segmented_image, contours, -1, (0, 0, 255), 2) 
     
-    return final_mask, segmented_image
+    return wall_mask, segmented_image
+
 
 def calculate_wall_area(mask, pixel_to_meter_ratio=0.01):
     """Calculate the wall area in square meters"""
@@ -265,30 +289,29 @@ def display_results(image_path, room_height=2.8, pixel_to_meter_ratio=0.01):
         f"Total Wall Area: {area:.2f} m²\n\n"
         f"ECONOMY OPTION:\n"
         f" - Paint Required: {cost_details['options']['economy']['paint_liters']:.2f} liters\n"
-        f" - Paint Cost: rs{cost_details['options']['economy']['paint_cost']:.2f}\n"
-        f" - Materials: rs{cost_details['options']['economy']['materials_cost']:.2f}\n"
-        f" - Labor: rs{cost_details['options']['economy']['labor_cost']:.2f}\n"
-        f" - Total: rs{cost_details['options']['economy']['total_cost']:.2f}\n\n"
+        f" - Paint Cost: Rs {cost_details['options']['economy']['paint_cost']:.2f}\n"
+        f" - Materials: Rs {cost_details['options']['economy']['materials_cost']:.2f}\n"
+        f" - Labor: Rs {cost_details['options']['economy']['labor_cost']:.2f}\n"
+        f" - Total: Rs {cost_details['options']['economy']['total_cost']:.2f}\n\n"
         f"STANDARD OPTION:\n"
         f" - Paint Required: {cost_details['options']['standard']['paint_liters']:.2f} liters\n"
-        f" - Paint Cost: rs{cost_details['options']['standard']['paint_cost']:.2f}\n"
-        f" - Materials: rs{cost_details['options']['standard']['materials_cost']:.2f}\n"
-        f" - Labor: rs{cost_details['options']['standard']['labor_cost']:.2f}\n"
-        f" - Total: rs{cost_details['options']['standard']['total_cost']:.2f}\n\n"
+        f" - Paint Cost: Rs {cost_details['options']['standard']['paint_cost']:.2f}\n"
+        f" - Materials: Rs {cost_details['options']['standard']['materials_cost']:.2f}\n"
+        f" - Labor: Rs {cost_details['options']['standard']['labor_cost']:.2f}\n"
+        f" - Total: Rs {cost_details['options']['standard']['total_cost']:.2f}\n\n"
         f"PREMIUM OPTION:\n"
         f" - Paint Required: {cost_details['options']['premium']['paint_liters']:.2f} liters\n"
-        f" - Paint Cost: rs{cost_details['options']['premium']['paint_cost']:.2f}\n"
-        f" - Materials: rs{cost_details['options']['premium']['materials_cost']:.2f}\n"
-        f" - Labor: rs{cost_details['options']['premium']['labor_cost']:.2f}\n"
-        f" - Total: rs{cost_details['options']['premium']['total_cost']:.2f}"
+        f" - Paint Cost: Rs {cost_details['options']['premium']['paint_cost']:.2f}\n"
+        f" - Materials: Rs {cost_details['options']['premium']['materials_cost']:.2f}\n"
+        f" - Labor: Rs {cost_details['options']['premium']['labor_cost']:.2f}\n"
+        f" - Total: Rs {cost_details['options']['premium']['total_cost']:.2f}"
     )
     
-    plt.text(0, 0.5, info_text, fontsize=9, 
+    plt.text(0, 0.5, info_text, fontsize=7, 
              bbox=dict(boxstyle='round,pad=1', facecolor='#f8f9fa', alpha=1),
              va='center')
     plt.axis('off')
     plt.title('Detailed Cost Breakdown')
-    
     plt.tight_layout()
     
     # Save results
